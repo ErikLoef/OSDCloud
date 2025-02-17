@@ -52,7 +52,7 @@ function Write-SectionSuccess {
 }
 #endregion
 
-$ScriptName = 'win11.garytown.com'
+$ScriptName = 'win11.proxsys.net'
 $ScriptVersion = '25.01.22.1'
 Write-Host -ForegroundColor Green "$ScriptName $ScriptVersion"
 #iex (irm functions.garytown.com) #Add custom functions used in Script Hosting in GitHub
@@ -82,10 +82,10 @@ $OSLanguage = 'en-us'
 
 #Set OSDCloud Vars
 $Global:MyOSDCloud = [ordered]@{
-    Restart = [bool]$False
+    Restart = [bool]$True
     RecoveryPartition = [bool]$true
     OEMActivation = [bool]$True
-    WindowsUpdate = [bool]$true
+    WindowsUpdate = [bool]$True
     WindowsUpdateDrivers = [bool]$true
     WindowsDefenderUpdate = [bool]$true
     SetTimeZone = [bool]$true
