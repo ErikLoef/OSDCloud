@@ -152,8 +152,8 @@ Write-SectionHeader "OSDCloud Variables"
 Write-Output $Global:MyOSDCloud
 
 #Update Files in Module that have been updated since last PowerShell Gallery Build (Testing Only)
-$ModulePath = (Get-ChildItem -Path "$($Env:ProgramFiles)\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object-Object -Last 1).fullname
-import-module "$ModulePath\OSD.psd1" -Force
+#$ModulePath = (Get-ChildItem -Path "$($Env:ProgramFiles)\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object-Object -Last 1).fullname
+#import-module "$ModulePath\OSD.psd1" -Force
 
 #Launch OSDCloud
 Write-SectionHeader -Message "Starting OSDCloud"
@@ -166,14 +166,14 @@ Write-SectionHeader -Message "OSDCloud Process Complete, Running Custom Actions 
 
 
 #Used in Testing "Beta Gary Modules which I've updated on the USB Stick"
-$OfflineModulePath = (Get-ChildItem -Path "C:\Program Files\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object -Last 1).fullname
-write-host -ForegroundColor Yellow "Updating $OfflineModulePath using $ModulePath - For Dev Purposes Only"
-copy-item "$ModulePath\*" "$OfflineModulePath"  -Force -Recurse
+#$OfflineModulePath = (Get-ChildItem -Path "C:\Program Files\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object -Last 1).fullname
+#write-host -ForegroundColor Yellow "Updating $OfflineModulePath using $ModulePath - For Dev Purposes Only"
+#copy-item "$ModulePath\*" "$OfflineModulePath"  -Force -Recurse
 
 #Copy CMTrace Local:
-if (Test-path -path "x:\windows\system32\cmtrace.exe"){
-    copy-item "x:\windows\system32\cmtrace.exe" -Destination "C:\Windows\System\cmtrace.exe" -verbose
-}
+#if (Test-path -path "x:\windows\system32\cmtrace.exe"){
+#    copy-item "x:\windows\system32\cmtrace.exe" -Destination "C:\Windows\System\cmtrace.exe" -verbose
+#}
 
 if ($Manufacturer -match "Lenovo") {
     $PowerShellSavePath = 'C:\Program Files\WindowsPowerShell'
