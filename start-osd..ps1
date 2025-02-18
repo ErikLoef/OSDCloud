@@ -1,4 +1,3 @@
-#to Run, boot OSDCloudUSB, at the PS Prompt: iex (irm win11.garytown.com)
 
 #region Initialization
 function Write-DarkGrayDate {
@@ -55,8 +54,7 @@ function Write-SectionSuccess {
 $ScriptName = 'win11.proxsys.net'
 $ScriptVersion = '25.01.22.1'
 Write-Host -ForegroundColor Green "$ScriptName $ScriptVersion"
-#iex (irm functions.garytown.com) #Add custom functions used in Script Hosting in GitHub
-#iex (irm functions.osdcloud.com) #Add custom fucntions from OSDCloud
+
 
 <# Offline Driver Details
 If you extract Driver Packs to your Flash Drive, you can DISM them in while in WinPE and it will make the process much faster, plus ensure driver support for first Boot
@@ -192,12 +190,12 @@ $Global:oobeCloud = @{
 
 function Step-KeyboardLanguage {
 
-    Write-Host -ForegroundColor Green "Set keyboard language to de-CH"
+    Write-Host -ForegroundColor Green "Set keyboard language to eb-US"
     Start-Sleep -Seconds 5
     
     $LanguageList = Get-WinUserLanguageList
     
-    $LanguageList.Add("de-CH")
+    $LanguageList.Add("en-US")
     Set-WinUserLanguageList $LanguageList -Force | Out-Null
     
     Start-Sleep -Seconds 5
