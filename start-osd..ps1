@@ -173,7 +173,7 @@ Write-SectionHeader -Message "OSDCloud Process Complete, Running Custom Actions 
 #   oobeCloud Settings
 #=================================================
 
-
+<#
 $Global:oobeCloud = @{
     oobeSetDisplay = $true
     oobeSetRegionLanguage = $true
@@ -189,7 +189,7 @@ $Global:oobeCloud = @{
     oobeRestartComputer = $true
     oobeStopComputer = $false
 }
-
+#>
 function Step-KeyboardLanguage {
 
     Write-Host -ForegroundColor Green "Set keyboard language to eb-US"
