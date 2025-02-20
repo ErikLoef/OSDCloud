@@ -1,0 +1,492 @@
+
+#region Initialization
+function Write-DarkGrayDate {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position = 0)]
+        [System.String]
+        $Message
+    )
+    if ($Message) {
+        Write-Host -ForegroundColor DarkGray "$((Get-Date).ToString('yyyy-MM-dd-HHmmss')) $Message"
+    }
+    else {
+        Write-Host -ForegroundColor DarkGray "$((Get-Date).ToString('yyyy-MM-dd-HHmmss')) " -NoNewline
+    }
+}
+function Write-DarkGrayHost {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [System.String]
+        $Message
+    )
+    Write-Host -ForegroundColor DarkGray $Message
+}
+function Write-DarkGrayLine {
+    [CmdletBinding()]
+    param ()
+    Write-Host -ForegroundColor DarkGray '========================================================================='
+}
+function Write-SectionHeader {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [System.String]
+        $Message
+    )
+    Write-DarkGrayLine
+    Write-DarkGrayDate
+    Write-Host -ForegroundColor Cyan $Message
+}
+function Write-SectionSuccess {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position = 0)]
+        [System.String]
+        $Message = 'Success!'
+    )
+    Write-DarkGrayDate
+    Write-Host -ForegroundColor Green $Message
+}
+#endregion
+
+$ScriptName = 'win11.proxsys.net'
+$ScriptVersion = '25.01.22.1'
+Write-Host -ForegroundColor Green "$ScriptName $ScriptVersion"
+
+
+<# Offline Driver Details
+If you extract Driver Packs to your Flash Drive, you can DISM them in while in WinPE and it will make the process much faster, plus ensure driver support for first Boot
+Extract to: OSDCLoudUSB:\OSDCloud\DriverPacks\DISM\$ComputerManufacturer\$ComputerProduct
+Use OSD Module to determine Vars
+$ComputerProduct = (Get-MyComputerProduct)
+$ComputerManufacturer = (Get-MyComputerManufacturer -Brief)
+#>
+
+
+
+#Variables to define the Windows OS / Edition etc to be applied during OSDCloud
+$Product = (Get-MyComputerProduct)
+$Model = (Get-MyComputerModel)
+$Manufacturer = (Get-CimInstance -ClassName Win32_ComputerSystem).Manufacturer
+$OSVersion = 'Windows 11' #Used to Determine Driver Pack
+$OSReleaseID = '24H2' #Used to Determine Driver Pack
+$OSName = 'Windows 11 24H2 x64'
+$OSEdition = 'Pro'
+$OSActivation = 'Retail'
+$OSLanguage = 'en-us'
+
+
+#Set OSDCloud Vars
+$Global:MyOSDCloud = [ordered]@{
+    Restart = [bool]$True
+    RecoveryPartition = [bool]$true
+    OEMActivation = [bool]$True
+    WindowsUpdate = [bool]$True
+    WindowsUpdateDrivers = [bool]$true
+    WindowsDefenderUpdate = [bool]$true
+    SetTimeZone = [bool]$true
+    ClearDiskConfirm = [bool]$False
+    ShutdownSetupComplete = [bool]$false
+    SyncMSUpCatDriverUSB = [bool]$true
+    CheckSHA1 = [bool]$true
+}
+
+#Testing MS Update Catalog Driver Sync
+#$Global:MyOSDCloud.DriverPackName = 'Microsoft Update Catalog'
+
+#Used to Determine Driver Pack
+$DriverPack = Get-OSDCloudDriverPack -Product $Product -OSVersion $OSVersion -OSReleaseID $OSReleaseID
+
+if ($DriverPack){
+    $Global:MyOSDCloud.DriverPackName = $DriverPack.Name
+}
+#$Global:MyOSDCloud.DriverPackName = "None"
+
+<#If Drivers are expanded on the USB Drive, disable installing a Driver Pack
+if (Test-DISMFromOSDCloudUSB -eq $true){
+    Write-Host "Found Driver Pack Extracted on Cloud USB Flash Drive, disabling Driver Download via OSDCloud" -ForegroundColor Green
+    if ($Global:MyOSDCloud.SyncMSUpCatDriverUSB -eq $true){
+        write-host "Setting DriverPackName to 'Microsoft Update Catalog'"
+        $Global:MyOSDCloud.DriverPackName = 'Microsoft Update Catalog'
+    }
+    else {
+        write-host "Setting DriverPackName to 'None'"
+        $Global:MyOSDCloud.DriverPackName = "None"
+    }
+}
+#>
+#Enable HPIA | Update HP BIOS | Update HP TPM
+ 
+if (Test-HPIASupport){
+    Write-SectionHeader -Message "Detected HP Device, Enabling HPIA, HP BIOS and HP TPM Updates"
+    #$Global:MyOSDCloud.DevMode = [bool]$True
+    $Global:MyOSDCloud.HPTPMUpdate = [bool]$True
+    if ($Product -ne '83B2' -and $Model -notmatch "zbook"){$Global:MyOSDCloud.HPIAALL = [bool]$true} #I've had issues with this device and HPIA
+    #{$Global:MyOSDCloud.HPIAALL = [bool]$true}
+    $Global:MyOSDCloud.HPBIOSUpdate = [bool]$true
+    #$Global:MyOSDCloud.HPCMSLDriverPackLatest = [bool]$true #In Test 
+    #Set HP BIOS Settings to what I want:
+    iex (irm https://raw.githubusercontent.com/gwblok/garytown/master/OSD/CloudOSD/Manage-HPBiosSettings.ps1)
+    Manage-HPBiosSettings -SetSettings
+}
+
+#if ($Manufacturer -match "Lenovo") {
+#    #Set Lenovo BIOS Settings to what I want:
+#    iex (irm https://raw.githubusercontent.com/gwblok/garytown/master/OSD/CloudOSD/Manage-LenovoBiosSettings.ps1)
+#    try {
+#        Manage-LenovoBIOSSettings -SetSettings
+#    }
+#    catch {
+#        <#Do this if a terminating exception happens#>
+#    }   
+#}
+
+
+#write variables to console
+Write-SectionHeader "OSDCloud Variables"
+Write-Output $Global:MyOSDCloud
+
+#Update Files in Module that have been updated since last PowerShell Gallery Build (Testing Only)
+#$ModulePath = (Get-ChildItem -Path "$($Env:ProgramFiles)\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object-Object -Last 1).fullname
+#import-module "$ModulePath\OSD.psd1" -Force
+
+#Launch OSDCloud
+Write-SectionHeader -Message "Starting OSDCloud"
+write-host "Start-OSDCloud -OSName $OSName -OSEdition $OSEdition -OSActivation $OSActivation -OSLanguage $OSLanguage"
+
+Start-OSDCloud -OSName $OSName -OSEdition $OSEdition -OSActivation $OSActivation -OSLanguage $OSLanguage
+
+Write-SectionHeader -Message "OSDCloud Process Complete, Running Custom Actions From Script Before Reboot"
+
+
+#if ($Manufacturer -match "Lenovo") {
+#    $PowerShellSavePath = 'C:\Program Files\WindowsPowerShell'
+#    Write-Host "Copy-PSModuleToFolder -Name LSUClient to $PowerShellSavePath\Modules"
+#    Copy-PSModuleToFolder -Name LSUClient -Destination "$PowerShellSavePath\Modules"
+#}
+
+
+
+#=================================================
+#   oobeCloud Settings
+#=================================================
+$Global:oobeCloud = @{
+    oobeSetDisplay = $true
+    oobeSetRegionLanguage = $true
+    oobeSetDateTime = $true
+    oobeRegisterAutopilot = $false
+    oobeRegisterAutopilotCommand = 'Get-WindowsAutopilotInfo -Online -GroupTag Demo -Assign'
+    oobeRemoveAppxPackage = $true
+    oobeRemoveAppxPackageName = 'CommunicationsApps','OfficeHub','People','Skype','Solitaire','Xbox','ZuneMusic','ZuneVideo'
+    oobeAddCapability = $true
+    oobeAddCapabilityName = 'GroupPolicy','ServerManager','VolumeActivation'
+    oobeUpdateDrivers = $true
+    oobeUpdateWindows = $true
+    oobeRestartComputer = $true
+    oobeStopComputer = $false
+}
+
+function Step-KeyboardLanguage {
+
+    Write-Host -ForegroundColor Green "Set keyboard language to eb-US"
+    Start-Sleep -Seconds 5
+    
+    $LanguageList = Get-WinUserLanguageList
+    
+    $LanguageList.Add("en-US")
+    Set-WinUserLanguageList $LanguageList -Force | Out-Null
+    
+    Start-Sleep -Seconds 5
+    
+    $LanguageList = Get-WinUserLanguageList
+    $LanguageList.Remove(($LanguageList | Where-Object LanguageTag -like 'en-US'))
+    Set-WinUserLanguageList $LanguageList -Force | Out-Null
+}
+function Step-oobeSetDisplay {
+    [CmdletBinding()]
+    param ()
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeSetDisplay -eq $true)) {
+        Write-Host -ForegroundColor Yellow 'Verify the Display Resolution and Scale is set properly'
+        Start-Process 'ms-settings:display' | Out-Null
+        $ProcessId = (Get-Process -Name 'SystemSettings').Id
+        if ($ProcessId) {
+            Wait-Process $ProcessId
+        }
+    }
+}
+function Step-oobeSetRegionLanguage {
+    [CmdletBinding()]
+    param ()
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeSetRegionLanguage -eq $true)) {
+        Write-Host -ForegroundColor Yellow 'Verify the Language, Region, and Keyboard are set properly'
+        Start-Process 'ms-settings:regionlanguage' | Out-Null
+        $ProcessId = (Get-Process -Name 'SystemSettings').Id
+        if ($ProcessId) {
+            Wait-Process $ProcessId
+        }
+    }
+}
+function Step-oobeSetDateTime {
+    [CmdletBinding()]
+    param ()
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeSetDateTime -eq $true)) {
+        Write-Host -ForegroundColor Yellow 'Verify the Date and Time is set properly including the Time Zone'
+        Write-Host -ForegroundColor Yellow 'If this is not configured properly, Certificates and Domain Join may fail'
+        Start-Process 'ms-settings:dateandtime' | Out-Null
+        $ProcessId = (Get-Process -Name 'SystemSettings').Id
+        if ($ProcessId) {
+            Wait-Process $ProcessId
+        }
+    }
+}
+function Step-oobeExecutionPolicy {
+    [CmdletBinding()]
+    param ()
+    if ($env:UserName -eq 'defaultuser0') {
+        if ((Get-ExecutionPolicy) -ne 'RemoteSigned') {
+            Write-Host -ForegroundColor Cyan 'Set-ExecutionPolicy RemoteSigned'
+            Set-ExecutionPolicy RemoteSigned -Force
+        }
+    }
+}
+function Step-oobePackageManagement {
+    [CmdletBinding()]
+    param ()
+    if ($env:UserName -eq 'defaultuser0') {
+        if (Get-Module -Name PowerShellGet -ListAvailable | Where-Object {$_.Version -ge '2.2.5'}) {
+            Write-Host -ForegroundColor Cyan 'PowerShellGet 2.2.5 or greater is installed'
+        }
+        else {
+            Write-Host -ForegroundColor Cyan 'Install-Package PackageManagement,PowerShellGet'
+            Install-Package -Name PowerShellGet -MinimumVersion 2.2.5 -Force -Confirm:$false -Source PSGallery | Out-Null
+    
+            Write-Host -ForegroundColor Cyan 'Import-Module PackageManagement,PowerShellGet'
+            Import-Module PackageManagement,PowerShellGet -Force
+        }
+    }
+}
+function Step-oobeTrustPSGallery {
+    [CmdletBinding()]
+    param ()
+    if ($env:UserName -eq 'defaultuser0') {
+        $PSRepository = Get-PSRepository -Name PSGallery
+        if ($PSRepository)
+        {
+            if ($PSRepository.InstallationPolicy -ne 'Trusted')
+            {
+                Write-Host -ForegroundColor Cyan 'Set-PSRepository PSGallery Trusted'
+                Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+            }
+        }
+    }
+}
+function Step-oobeInstallModuleAutopilot {
+    [CmdletBinding()]
+    param ()
+    if ($env:UserName -eq 'defaultuser0') {
+        $Requirement = Import-Module WindowsAutopilotIntune -PassThru -ErrorAction Ignore
+        if (-not $Requirement)
+        {
+            Write-Host -ForegroundColor Cyan 'Install-Module AzureAD,Microsoft.Graph.Intune,WindowsAutopilotIntune'
+            Install-Module WindowsAutopilotIntune -Force
+        }
+    }
+}
+function Step-oobeInstallModuleAzureAd {
+    [CmdletBinding()]
+    param ()
+    if ($env:UserName -eq 'defaultuser0') {
+        $Requirement = Import-Module AzureAD -PassThru -ErrorAction Ignore
+        if (-not $Requirement)
+        {
+            Write-Host -ForegroundColor Cyan 'Install-Module AzureAD'
+            Install-Module AzureAD -Force
+        }
+    }
+}
+function Step-oobeInstallScriptAutopilot {
+    [CmdletBinding()]
+    param ()
+    if ($env:UserName -eq 'defaultuser0') {
+        $Requirement = Get-InstalledScript -Name Get-WindowsAutoPilotInfo -ErrorAction SilentlyContinue
+        if (-not $Requirement)
+        {
+            Write-Host -ForegroundColor Cyan 'Install-Script Get-WindowsAutoPilotInfo'
+            Install-Script -Name Get-WindowsAutoPilotInfo -Force
+        }
+    }
+}
+function Step-oobeRegisterAutopilot {
+    [CmdletBinding()]
+    param (
+        [System.String]
+        $Command
+    )
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeRegisterAutopilot -eq $true)) {
+        Step-oobeInstallModuleAutopilot
+        Step-oobeInstallModuleAzureAd
+        Step-oobeInstallScriptAutopilot
+
+        Write-Host -ForegroundColor Cyan 'Registering Device in Autopilot in new PowerShell window ' -NoNewline
+        $AutopilotProcess = Start-Process PowerShell.exe -ArgumentList "-Command $Command" -PassThru
+        Write-Host -ForegroundColor Green "(Process Id $($AutopilotProcess.Id))"
+        Return $AutopilotProcess
+    }
+}
+function Step-oobeRemoveAppxPackage {
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeRemoveAppxPackage -eq $true)) {
+        Write-Host -ForegroundColor Cyan 'Removing Appx Packages'
+        foreach ($Item in $Global:oobeCloud.oobeRemoveAppxPackageName) {
+            if (Get-Command Get-AppxProvisionedPackage) {
+                Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -Match $Item} | ForEach-Object {
+                    Write-Host -ForegroundColor DarkGray $_.DisplayName
+                    if ((Get-Command Remove-AppxProvisionedPackage).Parameters.ContainsKey('AllUsers')) {
+                        Try
+                        {
+                            $null = Remove-AppxProvisionedPackage -Online -AllUsers -PackageName $_.PackageName
+                        }
+                        Catch
+                        {
+                            Write-Warning "AllUsers Appx Provisioned Package $($_.PackageName) did not remove successfully"
+                        }
+                    }
+                    else {
+                        Try
+                        {
+                            $null = Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName
+                        }
+                        Catch
+                        {
+                            Write-Warning "Appx Provisioned Package $($_.PackageName) did not remove successfully"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+function Step-oobeAddCapability {
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeAddCapability -eq $true)) {
+        Write-Host -ForegroundColor Cyan "Add-WindowsCapability"
+        foreach ($Item in $Global:oobeCloud.oobeAddCapabilityName) {
+            $WindowsCapability = Get-WindowsCapability -Online -Name "*$Item*" -ErrorAction SilentlyContinue | Where-Object {$_.State -ne 'Installed'}
+            if ($WindowsCapability) {
+                foreach ($Capability in $WindowsCapability) {
+                    Write-Host -ForegroundColor DarkGray $Capability.DisplayName
+                    $Capability | Add-WindowsCapability -Online | Out-Null
+                }
+            }
+        }
+    }
+}
+function Step-oobeUpdateDrivers {
+    [CmdletBinding()]
+    param ()
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeUpdateDrivers -eq $true)) {
+        Write-Host -ForegroundColor Cyan 'Updating Windows Drivers'
+        if (!(Get-Module PSWindowsUpdate -ListAvailable -ErrorAction Ignore)) {
+            try {
+                Install-Module PSWindowsUpdate -Force
+                Import-Module PSWindowsUpdate -Force
+            }
+            catch {
+                Write-Warning 'Unable to install PSWindowsUpdate Driver Updates'
+            }
+        }
+        if (Get-Module PSWindowsUpdate -ListAvailable -ErrorAction Ignore) {
+            Start-Process PowerShell.exe -ArgumentList "-Command Install-WindowsUpdate -UpdateType Driver -AcceptAll -IgnoreReboot" -Wait
+        }
+    }
+}
+function Step-oobeUpdateWindows {
+    [CmdletBinding()]
+    param ()
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeUpdateWindows -eq $true)) {
+        Write-Host -ForegroundColor Cyan 'Updating Windows'
+        if (!(Get-Module PSWindowsUpdate -ListAvailable)) {
+            try {
+                Install-Module PSWindowsUpdate -Force
+                Import-Module PSWindowsUpdate -Force
+            }
+            catch {
+                Write-Warning 'Unable to install PSWindowsUpdate Windows Updates'
+            }
+        }
+        if (Get-Module PSWindowsUpdate -ListAvailable -ErrorAction Ignore) {
+            #Write-Host -ForegroundColor DarkCyan 'Add-WUServiceManager -MicrosoftUpdate -Confirm:$false'
+            Add-WUServiceManager -MicrosoftUpdate -Confirm:$false | Out-Null
+            #Write-Host -ForegroundColor DarkCyan 'Install-WindowsUpdate -UpdateType Software -AcceptAll -IgnoreReboot'
+            #Install-WindowsUpdate -UpdateType Software -AcceptAll -IgnoreReboot -NotTitle 'Malicious'
+            #Write-Host -ForegroundColor DarkCyan 'Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot'
+            Start-Process PowerShell.exe -ArgumentList "-Command Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot -NotTitle 'Preview' -NotKBArticleID 'KB890830','KB5005463','KB4481252'" -Wait
+        }
+    }
+}
+function Invoke-Webhook {
+    $BiosSerialNumber = Get-MyBiosSerialNumber
+    $ComputerManufacturer = Get-MyComputerManufacturer
+    $ComputerModel = Get-MyComputerModel
+    
+    $URI = 'https://XXXX.webhook.office.com/webhookb2/YYYY'
+    $JSON = @{
+        "@type"    = "MessageCard"
+        "@context" = "<http://schema.org/extensions>"
+        "title"    = 'OSDCloud Information'
+        "text"     = "The following client has been successfully deployed:<br>
+                    BIOS Serial Number: **$($BiosSerialNumber)**<br>
+                    Computer Manufacturer: **$($ComputerManufacturer)**<br>
+                    Computer Model: **$($ComputerModel)**"
+        } | ConvertTo-JSON
+        
+        $Params = @{
+        "URI"         = $URI
+        "Method"      = 'POST'
+        "Body"        = $JSON
+        "ContentType" = 'application/json'
+        }
+        Invoke-RestMethod @Params | Out-Null
+}
+
+function Step-oobeRestartComputer {
+    [CmdletBinding()]
+    param ()
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeRestartComputer -eq $true)) {
+        Write-Host -ForegroundColor Cyan 'Build Complete!'
+        Write-Warning 'Device will restart in 30 seconds.  Press Ctrl + C to cancel'
+        Stop-Transcript
+        Start-Sleep -Seconds 30
+        Restart-Computer
+    }
+}
+function Step-oobeStopComputer {
+    [CmdletBinding()]
+    param ()
+    if (($env:UserName -eq 'defaultuser0') -and ($Global:oobeCloud.oobeStopComputer -eq $true)) {
+        Write-Host -ForegroundColor Cyan 'Build Complete!'
+        Write-Warning 'Device will shutdown in 30 seconds. Press Ctrl + C to cancel'
+        Stop-Transcript
+        Start-Sleep -Seconds 30
+        Stop-Computer
+    }
+}
+#endregion
+
+# Execute functions
+Step-KeyboardLanguage
+Step-oobeExecutionPolicy
+Step-oobePackageManagement
+Step-oobeTrustPSGallery
+Step-oobeSetDisplay
+Step-oobeSetRegionLanguage
+Step-oobeSetDateTime
+Step-oobeRegisterAutopilot
+Step-oobeRemoveAppxPackage
+Step-oobeAddCapability
+Step-oobeUpdateDrivers
+Step-oobeUpdateWindows
+#Invoke-Webhook
+Step-oobeRestartComputer
+Step-oobeStopComputer
+#=================================================
