@@ -473,6 +473,8 @@ function Step-oobeStopComputer {
 }
 #endregion
 
+Write-Host -ForegroundColor Cyan 'START ALL FUNCTIONS!'
+
 # Execute functions
 Step-KeyboardLanguage
 Step-oobeExecutionPolicy
