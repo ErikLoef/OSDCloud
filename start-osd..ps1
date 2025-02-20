@@ -172,6 +172,8 @@ Write-SectionHeader -Message "OSDCloud Process Complete, Running Custom Actions 
 #=================================================
 #   oobeCloud Settings
 #=================================================
+
+
 $Global:oobeCloud = @{
     oobeSetDisplay = $true
     oobeSetRegionLanguage = $true
@@ -492,3 +494,38 @@ Step-oobeUpdateWindows
 Step-oobeRestartComputer
 Step-oobeStopComputer
 #=================================================
+
+
+Write-Host -ForegroundColor Green "Create C:\Windows\System32\Scripts\OOBE.cmd"
+$OOBECMD = @'
+PowerShell -NoL -Com Set-ExecutionPolicy RemoteSigned -Force
+Set Path = %PATH%;C:\Program Files\WindowsPowerShell\Scripts
+Start /Wait PowerShell -NoL -C Install-Module AutopilotOOBE -Force -Verbose
+Start /Wait PowerShell -NoL -C Install-Module OSD -Force -Verbose
+Start /Wait PowerShell -NoL -C Invoke-WebPSScript https://raw.githubusercontent.com/ErikLoef/OSDCloud/refs/heads/main/Set-KeyboardLanguage.ps1
+Start /Wait PowerShell -NoL -C Invoke-WebPSScript https://raw.githubusercontent.com/AkosBakos/OSDCloud/main/Install-EmbeddedProductKey.ps1
+Start /Wait PowerShell -NoL -C Start-OOBEDeploy
+Start /Wait PowerShell -NoL -C Invoke-WebPSScript https://tpm.osdcloud.ch
+Start /Wait PowerShell -NoL -C Invoke-WebPSScript https://cleanup.osdcloud.ch
+Start /Wait PowerShell -NoL -C Restart-Computer -Force
+'@
+$OOBECMD | Out-File -FilePath 'C:\Windows\System32\OOBE.cmd' -Encoding ascii -Force
+
+#================================================
+#  [PostOS] SetupComplete CMD Command Line
+#================================================
+#Write-Host -ForegroundColor Green "Create C:\Windows\Setup\Scripts\SetupComplete.cmd"
+#$SetupCompleteCMD = @'
+#powershell.exe -Command Set-ExecutionPolicy RemoteSigned -Force
+#powershell.exe -Command "& {IEX (IRM https://raw.githubusercontent.com/ErikLoef/OSDCloud/refs/heads/main/oobetasks.ps1)}"
+#'@
+#$SetupCompleteCMD | Out-File -FilePath 'C:\Windows\Setup\Scripts\SetupComplete.cmd' -Encoding ascii -Force
+
+#=======================================================================
+#   Restart-Computer
+#=======================================================================
+Write-Host  -ForegroundColor Green "Restarting in 20 seconds!"
+Start-Sleep -Seconds 20
+wpeutil reboot
+
+
