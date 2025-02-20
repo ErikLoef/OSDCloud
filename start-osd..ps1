@@ -476,7 +476,7 @@ function Step-oobeStopComputer {
 #endregion
 
 Write-Host -ForegroundColor Cyan 'START ALL FUNCTIONS!'
-
+<#
 # Execute functions
 Step-KeyboardLanguage
 Step-oobeExecutionPolicy
@@ -494,7 +494,7 @@ Step-oobeUpdateWindows
 Step-oobeRestartComputer
 Step-oobeStopComputer
 #=================================================
-
+#>
 
 Write-Host -ForegroundColor Green "Create C:\Windows\System32\Scripts\OOBE.cmd"
 $OOBECMD = @'
@@ -527,5 +527,15 @@ $OOBECMD | Out-File -FilePath 'C:\Windows\System32\OOBE.cmd' -Encoding ascii -Fo
 Write-Host  -ForegroundColor Green "Restarting in 20 seconds!"
 Start-Sleep -Seconds 20
 wpeutil reboot
+#=======================================================================
+#   Restart-Computer
+#=======================================================================
+Write-Host  -ForegroundColor Green "Restarting in 20 seconds!"
+Start-Sleep -Seconds 20
+wpeutil reboot
 
+
+
+#Restart
+restart-computer
 
